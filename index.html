@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>USSD Outpatient Scheduling</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ios-blue: #007AFF;
+    --ios-green: #34C759;
+    --ios-bg: #FFFFFF;
+    --ios-gray1: #8E8E93;
+    --ios-gray2: #AEAEB2;
+    --ios-gray3: #C7C7CC;
+    --ios-gray4: #D1D1D6;
+    --ios-gray5: #E5E5EA;
+    --ios-gray6: #F2F2F7;
+    --ussd-bg: #3A3A3C;
+    --key-reg: #636366;
+    --key-fn: #48484A;
+    --phone-body: #1C1C1E;
+    --phone-border: #2C2C2E;
+  }
+
+  body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100svh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    overflow: auto;
+    padding: 40px 20px;
+  }
+
+  /* ===== PHONE SHELL ===== */
+  .phone-shell {
+    width: 375px;
+    flex-shrink: 0;
+    background: var(--phone-body);
+    border-radius: 54px;
+    padding: 12px;
+    box-shadow: 
+      0 0 0 1px #3a3a3c,
+      0 40px 80px rgba(0,0,0,0.8),
+      inset 0 1px 0 rgba(255,255,255,0.1);
+    position: relative;
+    /* Prevent any kind of shrinking/growing from browser zoom.
+       The shell is a fixed 375px object; zoom just scales the pixel grid. */
+    min-width: 375px;
+    max-width: 375px;
+  }
+
+  .phone-inner {
+    background: var(--ios-bg);
+    border-radius: 44px;
+    overflow: hidden;
+    height: 750px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Notch */
+  .notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px;
+    height: 30px;
+    background: var(--phone-body);
+    border-radius: 0 0 20px 20px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .notch-speaker {
+    width: 52px; height: 5px;
+    background: #2c2c2e;
+    border-radius: 3px;
+  }
+  .notch-cam {
+    width: 10px; height: 10px;
+    background: #2c2c2e;
+    border-radius: 50%;
+  }
+
+  /* Home indicator */
+  .home-bar {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 130px; height: 5px;
+    background: #1c1c1e;
+    border-radius: 3px;
+    z-index: 100;
+  }
+
+  /* ===== STATUS BAR ===== */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px 6px;
+    padding-top: 48px;
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #000;
+  }
+  .status-icons { display: flex; align-items: center; gap: 5px; }
+  .wifi-icon { width: 16px; height: 12px; }
+  .battery-icon { 
+    width: 25px; height: 12px;
+    border: 1.5px solid #000;
+    border-radius: 3px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 1.5px;
+  }
+  .battery-icon::after {
+    content: '';
+    position: absolute;
+    right: -5px; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 6px;
+    background: #000;
+    border-radius: 0 1px 1px 0;
+  }
+  .battery-fill {
+    height: 100%;
+    width: 75%;
+    background: #000;
+    border-radius: 1px;
+  }
+
+  /* ===== DIAL SCREEN ===== */
+  .dial-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dialed-number {
+    text-align: center;
+    padding: 20px 24px 12px;
+    font-size: 38px;
+    font-weight: 300;
+    color: #000;
+    letter-spacing: 0.04em;
+    min-height: 64px;
+    flex-shrink: 0;
+  }
+
+  /* ===== PHONE KEYPAD ===== */
+  .keypad-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 80px;
+  }
+
+  .keypad-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 76px);
+    gap: 14px;
+    padding: 0 32px;
+  }
+
+  .key-btn {
+    width: 76px; height: 76px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    transition: background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .key-btn.digit {
+    background: var(--ios-gray5);
+  }
+  .key-btn.digit:active, .key-btn.digit:hover { background: var(--ios-gray4); }
+
+  .key-digit { font-size: 30px; font-weight: 300; color: #000; line-height: 1; }
+  .key-letters { font-size: 9px; font-weight: 500; color: #000; letter-spacing: 0.08em; }
+
+  .key-btn.call-btn {
+    background: var(--ios-green);
+  }
+  .key-btn.call-btn:active { background: #2db34a; }
+  .call-icon { font-size: 28px; filter: brightness(0) invert(1); }
+
+  .key-btn.delete-btn {
+    background: var(--ios-gray4);
+  }
+  .key-btn.delete-btn:active { background: var(--ios-gray3); }
+
+  /* ===== BOTTOM NAV ===== */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(255,255,255,0.95);
+    border-top: 1px solid var(--ios-gray5);
+    padding: 8px 0 24px;
+    display: flex;
+    justify-content: space-around;
+    z-index: 10;
+  }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border: none;
+    background: none;
+  }
+  .nav-icon { font-size: 22px; }
+  .nav-label { font-size: 10px; color: var(--ios-gray1); }
+  .nav-item.active .nav-label { color: var(--ios-blue); }
+  .nav-item.active .nav-icon { filter: none; }
+
+  /* ===== LOADING MODAL ===== */
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.28);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .loading-card {
+    background: rgba(255,255,255,0.96);
+    border-radius: 18px;
+    padding: 28px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    min-width: 150px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3.5px solid var(--ios-gray5);
+    border-top-color: var(--ios-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; font-weight: 500; color: #000; }
+
+  /* ===== ERROR MODAL ===== */
+  .error-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 45;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 80px;
+  }
+  .error-card {
+    background: #fff;
+    border-radius: 16px;
+    width: 88%;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .error-msg {
+    padding: 16px 22px;
+    font-size: 13px;
+    color: #000;
+    text-align: center;
+    border-bottom: 1px solid var(--ios-gray5);
+  }
+  .error-ok {
+    width: 100%;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ios-blue);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .error-ok:active { background: var(--ios-gray6); }
+
+  /* ===== USSD OVERLAY ===== */
+  .ussd-overlay {
+    position: absolute;
+    inset: 0;
+    background: var(--ussd-bg);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    border-radius: 44px;
+    overflow: hidden;
+  }
+
+  .ussd-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 20px 12px;
+    flex-shrink: 0;
+  }
+  .ussd-btn { 
+    font-size: 17px; 
+    color: var(--ios-blue); 
+    background: none; 
+    border: none; 
+    cursor: pointer;
+    padding: 4px 2px;
+  }
+  .ussd-title { font-size: 17px; font-weight: 600; color: #fff; }
+
+  /* Content area fills the remaining vertical space between topbar and keyboard.
+     We center the content GROUP (text + input) vertically inside it. */
+  .ussd-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   /* vertically center the inner block */
+    align-items: center;
+    overflow: hidden;
+    padding: 12px 20px 8px;
+  }
+
+  /* Inner block: only as tall as the text + input — no stretching */
+  .ussd-content-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .ussd-text {
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.6;
+    text-align: center;
+    white-space: pre-wrap;
+    width: 100%;
+  }
+
+  .ussd-input-box {
+    margin: 10px auto 0;   /* tight gap right below the text */
+    width: 100%;
+    max-width: 320px;
+    border: 2px solid #636366;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .ussd-input-star { color: var(--ios-gray2); font-size: 14px; }
+  .ussd-input-text { font-size: 14px; }
+  .ussd-input-text.has-value { color: #fff; }
+  .ussd-input-text.placeholder { color: #636366; }
+
+  /* ===== USSD QWERTY ===== */
+  .ussd-keyboard {
+    flex-shrink: 0;
+    background: #2c2c2e;
+    padding: 8px 6px 4px;
+  }
+
+  .kb-row {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-bottom: 7px;
+  }
+
+  .kb-key {
+    height: 40px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 400;
+    color: #fff;
+    transition: opacity 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .kb-key:active { opacity: 0.6; }
+
+  .kb-key.letter { background: var(--key-reg); flex: 1; min-width: 28px; max-width: 36px; font-size: 16px; }
+  .kb-key.number { background: var(--key-reg); flex: 1; min-width: 28px; max-width: 36px; font-size: 17px; }
+  .kb-key.fn { background: var(--key-fn); width: 42px; font-size: 13px; }
+  .kb-key.space { background: var(--key-reg); flex: 1; font-size: 15px; }
+  .kb-key.comma { background: var(--key-reg); width: 38px; }
+  .kb-key.hash { background: var(--key-reg); width: 38px; }
+  .kb-key.return-btn { background: var(--ios-blue); width: 82px; font-size: 15px; font-weight: 600; }
+  .kb-key.delete { background: var(--key-fn); width: 42px; }
+  .kb-key.shift { background: var(--key-fn); width: 42px; }
+  .kb-key.shift.active { background: #888; }
+  .kb-key.toggle-123 { background: var(--key-fn); width: 42px; font-size: 13px; }
+  .kb-key.globe { background: var(--key-fn); width: 38px; }
+
+  /* Number keyboard */
+  .kb-key.sym { background: var(--key-reg); flex: 1; min-width: 28px; max-width: 36px; font-size: 15px; }
+
+  /* ===== INVALID INPUT SCREEN ===== */
+  .invalid-overlay {
+    position: absolute;
+    inset: 0;
+    background: #2d2d30;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    border-radius: 44px;
+    overflow: hidden;
+    padding: 0 24px;
+  }
+  .invalid-msg-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .invalid-msg {
+    color: #fff;
+    font-size: 17px;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .dismiss-btn {
+    background: #fff;
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    width: 100%;
+    font-size: 17px;
+    font-weight: 500;
+    color: #000;
+    cursor: pointer;
+    margin-bottom: 36px;
+  }
+  .dismiss-btn:active { background: #e5e5ea; }
+
+  /* ===== SMS SCREEN ===== */
+  .sms-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    border-radius: 44px;
+    overflow: hidden;
+  }
+
+  .sms-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 50px 24px 8px;
+    font-size: 15px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .sms-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px 10px;
+    border-bottom: 1px solid var(--ios-gray5);
+    flex-shrink: 0;
+  }
+  .sms-back {
+    color: var(--ios-blue);
+    font-size: 28px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .sms-contact {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .sms-avatar {
+    width: 48px; height: 48px;
+    background: var(--ios-gray3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+  .sms-name { font-size: 13px; font-weight: 600; }
+
+  .sms-body { flex: 1; padding: 16px; overflow-y: auto; }
+  .sms-bubble {
+    background: #E9E9EB;
+    border-radius: 22px;
+    padding: 12px 16px;
+    max-width: 88%;
+    display: inline-block;
+  }
+  .sms-bubble-text {
+    font-size: 15px;
+    color: #000;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+  }
+
+  .sms-inputbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--ios-gray5);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .sms-icon-btn { font-size: 20px; color: var(--ios-gray1); background: none; border: none; }
+  .sms-field {
+    flex: 1;
+    background: var(--ios-gray6);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 15px;
+    color: var(--ios-gray2);
+  }
+  .sms-home { 
+    display: flex; justify-content: center; 
+    padding: 6px 0 20px; 
+    background: #fff; 
+    flex-shrink: 0;
+  }
+  .sms-home-bar { 
+    width: 130px; height: 5px; 
+    background: #1c1c1e; 
+    border-radius: 3px; 
+  }
+
+  /* Hidden */
+  .hidden { display: none !important; }
+
+  /* Transitions */
+  .fade-in { animation: fadeIn 0.18s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div class="phone-shell">
+  <div class="phone-inner" id="phoneInner">
+    <div class="notch">
+      <div class="notch-speaker"></div>
+      <div class="notch-cam"></div>
+    </div>
+    <div class="home-bar"></div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <span id="clock">21:19</span>
+      <div class="status-icons">
+        <svg class="wifi-icon" viewBox="0 0 16 12" fill="none">
+          <path d="M8 9.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" fill="#000"/>
+          <path d="M3.5 6.5A6.5 6.5 0 018 5a6.5 6.5 0 014.5 1.5" stroke="#000" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+          <path d="M1 3.5A10 10 0 018 1a10 10 0 017 2.5" stroke="#000" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+        </svg>
+        <div class="battery-icon"><div class="battery-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- MAIN DIAL SCREEN -->
+    <div class="dial-screen" id="dialScreen">
+      <div class="dialed-number" id="dialedNumber"></div>
+      <div class="keypad-area">
+        <div>
+          <div class="keypad-grid" id="phoneKeypad"></div>
+        </div>
+      </div>
+      <!-- bottom nav -->
+      <div class="bottom-nav">
+        <button class="nav-item"><span class="nav-icon">⭐</span><span class="nav-label">Favorites</span></button>
+        <button class="nav-item"><span class="nav-icon">🕐</span><span class="nav-label">Recents</span></button>
+        <button class="nav-item"><span class="nav-icon">👤</span><span class="nav-label">Contacts</span></button>
+        <button class="nav-item active"><span class="nav-icon">🔢</span><span class="nav-label" style="color:#007AFF">Keypad</span></button>
+        <button class="nav-item"><span class="nav-icon">📳</span><span class="nav-label">Voicemail</span></button>
+      </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+      <div class="loading-card">
+        <div class="spinner"></div>
+        <div class="loading-text">USSD Code Running</div>
+      </div>
+    </div>
+
+    <!-- ERROR MODAL -->
+    <div class="error-overlay hidden" id="errorOverlay">
+      <div class="error-card">
+        <div class="error-msg">Connection problem or invalid MMI code.</div>
+        <button class="error-ok" onclick="closeError()">OK</button>
+      </div>
+    </div>
+
+    <!-- INVALID INPUT -->
+    <div class="invalid-overlay hidden" id="invalidOverlay">
+      <div class="invalid-msg-area">
+        <p class="invalid-msg" id="invalidMsg"></p>
+      </div>
+      <button class="dismiss-btn" onclick="dismissInvalid()">Dismiss</button>
+    </div>
+
+    <!-- USSD OVERLAY -->
+    <div class="ussd-overlay hidden" id="ussdOverlay">
+      <div class="ussd-topbar">
+        <button class="ussd-btn" onclick="closeUSSD()">Cancel</button>
+        <span class="ussd-title">Reply</span>
+        <button class="ussd-btn">Reply</button>
+      </div>
+      <div class="ussd-content-area">
+        <div class="ussd-content-inner">
+          <div class="ussd-text" id="ussdText"></div>
+          <div class="ussd-input-box" id="ussdInputBox">
+            <span class="ussd-input-star">* </span>
+            <span class="ussd-input-text placeholder" id="ussdInputDisplay">Enter your choice</span>
+          </div>
+        </div>
+      </div>
+      <div class="ussd-keyboard" id="ussdKeyboard"></div>
+    </div>
+
+    <!-- SMS SCREEN -->
+    <div class="sms-overlay hidden" id="smsOverlay">
+      <div class="sms-status">
+        <span id="smsClock">21:21</span>
+        <div class="status-icons">
+          <svg class="wifi-icon" viewBox="0 0 16 12" fill="none">
+            <path d="M8 9.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" fill="#000"/>
+            <path d="M3.5 6.5A6.5 6.5 0 018 5a6.5 6.5 0 014.5 1.5" stroke="#000" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <path d="M1 3.5A10 10 0 018 1a10 10 0 017 2.5" stroke="#000" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+          </svg>
+          <div class="battery-icon"><div class="battery-fill"></div></div>
+        </div>
+      </div>
+      <div class="sms-header">
+        <button class="sms-back" onclick="closeSMS()">‹</button>
+        <div class="sms-contact">
+          <div class="sms-avatar">👤</div>
+          <span class="sms-name">111</span>
+        </div>
+        <div style="width:32px"></div>
+      </div>
+      <div class="sms-body">
+        <div class="sms-bubble">
+          <div class="sms-bubble-text" id="smsBubbleText"></div>
+        </div>
+      </div>
+      <div class="sms-inputbar">
+        <button class="sms-icon-btn">💬</button>
+        <div class="sms-field">Text Message • SMS</div>
+        <button class="sms-icon-btn">🎤</button>
+      </div>
+      <div class="sms-home"><div class="sms-home-bar"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA & STATE
+// ============================================================
+
+let appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+let session = { currentMenuId: 'main', history: [], selections: {}, selectedAppointmentId: null };
+let dialedNumber = '';
+let ussdInput = '';
+let showNumbers = false;
+let isShift = false;
+let isCaps = false;
+let lastShiftTime = 0;
+
+// ============================================================
+// MENU SYSTEM
+// ============================================================
+
+const menus = {
+  main: {
+    text: `Welcome to Outpatient Services\n\n1) Book Appointment\n2) Cancel Appointment\n3) Health Announcements\n0) Back\n\nReply with option number:`,
+    options: [
+      { key: '1', label: 'Book Appointment', next: 'services' },
+      { key: '2', label: 'Cancel Appointment', next: 'cancel_menu' },
+      { key: '3', label: 'Health Announcements', next: 'announcements' },
+      { key: '0', label: 'Back', next: 'main' },
+    ]
+  },
+  cancel_menu: {
+    text: `Cancel Appointment\n\n1) View all appointments\n0) Back\n\nReply with option number:`,
+    options: [
+      { key: '1', label: 'View all appointments', next: 'appointments_list' },
+      { key: '0', label: 'Back', next: 'main' },
+    ]
+  },
+  appointments_list: {
+    text: `All appointments:\n\nNo appointments found\n\n0) Back\n\nReply with option number:`,
+    options: [{ key: '0', label: 'Back', next: 'cancel_menu' }],
+    dynamic: true
+  },
+  cancel_confirm: {
+    text: `Cancel Appointment?\n\n1) Yes\n2) No\n0) Back\n\nReply with option number:`,
+    options: [
+      { key: '1', label: 'Yes', next: 'cancel_success' },
+      { key: '2', label: 'No', next: 'appointments_list' },
+      { key: '0', label: 'Back', next: 'appointments_list' },
+    ]
+  },
+  cancel_success: {
+    text: `Your appointment has been successfully cancelled.\n\n`,
+    terminal: true
+  },
+  sms_cancellation: {
+    text: `Appointment Cancelled\n\nYour appointment at (Hospital Name) on [CancelDate] at [CancelTime] has been successfully cancelled.\n\nIf you would like to reschedule, please dial *111#.\n\nThank you, and we hope to assist you again soon.`,
+    terminal: true
+  },
+  services: {
+    text: `Select Service:\n\n1) General Check up\n2) Vaccinations\n3) Maternal\n0) Back\n\nReply with option number:`,
+    options: [
+      { key: '1', label: 'General Check up', next: 'dates' },
+      { key: '2', label: 'Vaccinations', next: 'dates' },
+      { key: '3', label: 'Maternal', next: 'dates' },
+      { key: '0', label: 'Back', next: 'main' },
+    ]
+  },
+  dates: {
+    text: `Available Date\n1) Wednesday, March 18\n2) Thursday, March 19\n3) Friday, March 20\n0) Back`,
+    options: [
+      { key: '1', label: 'Wednesday, March 18', next: 'time' },
+      { key: '2', label: 'Thursday, March 19', next: 'time' },
+      { key: '3', label: 'Friday, March 20', next: 'time' },
+      { key: '0', label: 'Back', next: 'services' },
+    ]
+  },
+  time: {
+    text: `Available Time\n1) 8:00 AM\n2) 9:00 AM\n3) 10:00 AM\n4) 11:00 AM\n0) Back`,
+    options: [
+      { key: '1', label: '8:00 AM', next: 'name_input' },
+      { key: '2', label: '9:00 AM', next: 'name_input' },
+      { key: '3', label: '10:00 AM', next: 'name_input' },
+      { key: '4', label: '11:00 AM', next: 'name_input' },
+      { key: '0', label: 'Back', next: 'dates' },
+    ]
+  },
+  name_input: {
+    text: `Please enter your full name in this format:\n\n(SURNAME, Given Name M.I)\n\n0) Back\n\nType your name:`,
+    requiresText: true,
+    inputType: 'name',
+    options: [{ key: '0', label: 'Back', next: 'time' }]
+  },
+  phone_input: {
+    text: `Please enter your phone number\n(e.g. 096XXXXXXXX)\n\n0) Back\n\nType your phone number:`,
+    requiresText: true,
+    inputType: 'phone',
+    options: [{ key: '0', label: 'Back', next: 'name_input' }]
+  },
+  gender_input: {
+    text: `Enter your gender (M/F):\n\n0) Back`,
+    requiresText: true,
+    inputType: 'gender',
+    options: [{ key: '0', label: 'Back', next: 'phone_input' }]
+  },
+  proceed_confirmation: {
+    text: `Proceed to book?\n\n1) Yes\n2) No\n0) Back\n\nReply with option number:`,
+    options: [
+      { key: '1', label: 'Yes', next: 'confirmation' },
+      { key: '2', label: 'No', next: 'main' },
+      { key: '0', label: 'Back', next: 'gender_input' },
+    ],
+    dynamic: true
+  },
+  confirmation: {
+    text: `Thank you! You will receive a response via text shortly.`,
+    terminal: true
+  },
+  sms_confirmation: {
+    text: `Appointment Confirmed\n\nHello, [Name]! Your appointment at (Hospital Name) on [Date] at [Time] has been successfully confirmed.\n\nPlease arrive on time. If you need to reschedule or cancel, dial *111# and select 'Cancel Appointment' from the menu.\n\nWe look forward to seeing you.`,
+    terminal: true
+  },
+  announcements: {
+    text: `Health Announcements:\n\n• Flu vaccination now available\n• COVID-19 boosters recommended\n• Free health screening on March 25\n• New maternal care program launched\n\n0) Back`,
+    options: [{ key: '0', label: 'Back', next: 'main' }]
+  }
+};
+
+function getMenuContent() {
+  const id = session.currentMenuId;
+  const menu = menus[id];
+  if (!menu) return 'Error';
+
+  let content = menu.text;
+
+  if (id === 'appointments_list') {
+    if (appointments.length > 0) {
+      content = `All appointments:\n\n`;
+      appointments.forEach((apt, i) => {
+        content += `${i+1}) ${apt.date} (${apt.service})\n`;
+      });
+      content += `0) Back\n\nReply with option number:`;
+    } else {
+      content = `All appointments:\n\nNo appointments found\n\n0) Back\n\nReply with option number:`;
+    }
+  }
+
+  if (id === 'proceed_confirmation') {
+    const s = session.selections;
+    content = `Proceed to book?\n\nName: ${s.name||''}\nNumber: ${s.phone||''}\nService: ${s.service||''}\nDate & Time: ${s.date||''} at ${s.time||''}\nGender: ${s.gender||''}\n\n1) Yes\n2) No\n0) Back\n\nReply with option number:`;
+  }
+
+  const s = session.selections;
+  content = content
+    .replace('[Name]', s.name||'')
+    .replace('[Date]', s.date||'')
+    .replace('[Time]', s.time||'')
+    .replace('[Service]', s.service||'')
+    .replace('[Phone]', s.phone||'')
+    .replace('[Gender]', s.gender||'')
+    .replace('[CancelDate]', s.cancelDate||'')
+    .replace('[CancelTime]', s.cancelTime||'');
+
+  return content;
+}
+
+function isSlotBooked(date, time) {
+  return appointments.some(a => a.date === date && a.time === time);
+}
+
+function handleMenuSelection(sel) {
+  const menu = menus[session.currentMenuId];
+  if (!menu) return;
+
+  // Terminal # exit
+  if (sel === '#' && menu.terminal) {
+    session = { currentMenuId: 'main', history: [], selections: {}, selectedAppointmentId: null };
+    renderUSSD();
+    return;
+  }
+
+  // Text input menus
+  if (menu.requiresText) {
+    if (sel === '0') {
+      const backOpt = menu.options.find(o => o.key === '0');
+      if (backOpt) {
+        session.history.push(session.currentMenuId);
+        session.currentMenuId = backOpt.next;
+        renderUSSD();
+      }
+      return;
+    }
+    if (menu.inputType === 'name') {
+      const nameReg = /^[A-Za-z\s.]+,\s*[A-Za-z\s.]+$/;
+      if (!nameReg.test(sel.trim())) {
+        showInvalidInput('name');
+        return;
+      }
+      session.selections.name = sel.trim().toUpperCase();
+      session.history.push(session.currentMenuId);
+      session.currentMenuId = 'phone_input';
+    } else if (menu.inputType === 'phone') {
+      const phoneReg = /^09\d{9}$/;
+      if (!phoneReg.test(sel)) {
+        showInvalidInput('phone');
+        return;
+      }
+      session.selections.phone = sel;
+      session.history.push(session.currentMenuId);
+      session.currentMenuId = 'gender_input';
+    } else if (menu.inputType === 'gender') {
+      const g = sel.toUpperCase();
+      if (g !== 'M' && g !== 'F') {
+        showInvalidInput('menu');
+        return;
+      }
+      session.selections.gender = g === 'M' ? 'Male' : 'Female';
+      session.history.push(session.currentMenuId);
+      session.currentMenuId = 'proceed_confirmation';
+    }
+    renderUSSD();
+    return;
+  }
+
+  // Appointments list selection
+  if (session.currentMenuId === 'appointments_list' && sel !== '0') {
+    const idx = parseInt(sel) - 1;
+    if (idx >= 0 && idx < appointments.length) {
+      const apt = appointments[idx];
+      session.selectedAppointmentId = apt.id;
+      session.selections.cancelDate = apt.date;
+      session.selections.cancelTime = apt.time;
+      session.history.push(session.currentMenuId);
+      session.currentMenuId = 'cancel_confirm';
+      renderUSSD();
+      return;
+    }
+    showInvalidInput('menu');
+    return;
+  }
+
+  // Find option
+  const opt = menu.options && menu.options.find(o => o.key === sel);
+  if (!opt) {
+    const menusWithErr = ['main','services','dates','time','cancel_menu','cancel_confirm','proceed_confirmation','announcements','appointments_list'];
+    if (menusWithErr.includes(session.currentMenuId)) {
+      showInvalidInput('menu');
+    }
+    return;
+  }
+
+  // Store selections
+  if (session.currentMenuId === 'services') session.selections.service = opt.label;
+  if (session.currentMenuId === 'dates') session.selections.date = opt.label;
+  if (session.currentMenuId === 'time') {
+    // Double-booking check
+    if (isSlotBooked(session.selections.date, opt.label)) {
+      showInvalidInput('booked');
+      return;
+    }
+    session.selections.time = opt.label;
+  }
+
+  // Cancel confirmed
+  if (session.currentMenuId === 'cancel_confirm' && sel === '1') {
+    appointments = appointments.filter(a => a.id !== session.selectedAppointmentId);
+    saveAppointments();
+  }
+
+  session.history.push(session.currentMenuId);
+  session.currentMenuId = opt.next;
+  renderUSSD();
+
+  // Confirmation → SMS
+  if (session.currentMenuId === 'confirmation') {
+    setTimeout(() => {
+      const newApt = {
+        id: 'APT-' + Date.now(),
+        service: session.selections.service || '',
+        date: session.selections.date || '',
+        time: session.selections.time || '',
+        name: session.selections.name || '',
+        phone: session.selections.phone || '',
+        gender: session.selections.gender || ''
+      };
+      appointments.push(newApt);
+      saveAppointments();
+      session.selections.refNum = String(Math.floor(Math.random()*9000)+1000);
+      session.currentMenuId = 'sms_confirmation';
+      document.getElementById('ussdOverlay').classList.add('hidden');
+      showSMSScreen();
+      playMessageSound();
+    }, 2000);
+  }
+
+  // Cancel success → SMS
+  if (session.currentMenuId === 'cancel_success') {
+    setTimeout(() => {
+      session.currentMenuId = 'sms_cancellation';
+      document.getElementById('ussdOverlay').classList.add('hidden');
+      showSMSScreen();
+      playMessageSound();
+    }, 2000);
+  }
+}
+
+function saveAppointments() {
+  localStorage.setItem('appointments', JSON.stringify(appointments));
+}
+
+// ============================================================
+// SOUND
+// ============================================================
+function playSound(freqs, volumes, durations, delays) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    freqs.forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = f; osc.type = 'sine';
+      const t = ctx.currentTime + (delays[i]||0);
+      gain.gain.setValueAtTime(volumes[i]||0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + durations[i]);
+      osc.start(t); osc.stop(t + durations[i]);
+    });
+  } catch(e) {}
+}
+const playTransitionSound = () => playSound([600],[0.3],[0.15],[0]);
+const playErrorSound = () => playSound([800,600,400],[0.4,0.45,0.5],[0.2,0.2,0.25],[0,0.15,0.3]);
+const playMessageSound = () => playSound([1000,1300],[0.5,0.6],[0.1,0.15],[0,0.08]);
+const playClickSound = () => playSound([800],[0.2],[0.05],[0]);
+
+// ============================================================
+// PHONE KEYPAD RENDER
+// ============================================================
+const phoneKeys = [
+  {d:'1',l:''},{d:'2',l:'ABC'},{d:'3',l:'DEF'},
+  {d:'4',l:'GHI'},{d:'5',l:'JKL'},{d:'6',l:'MNO'},
+  {d:'7',l:'PQRS'},{d:'8',l:'TUV'},{d:'9',l:'WXYZ'},
+  {d:'*',l:''},{d:'0',l:'+'},{d:'#',l:''},
+];
+
+function buildPhoneKeypad() {
+  const grid = document.getElementById('phoneKeypad');
+  grid.innerHTML = '';
+  phoneKeys.forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'key-btn digit';
+    btn.innerHTML = `<span class="key-digit">${k.d}</span>${k.l ? `<span class="key-letters">${k.l}</span>` : ''}`;
+    btn.addEventListener('click', () => pressDialKey(k.d));
+    grid.appendChild(btn);
+  });
+  // Action row
+  const actRow = document.createElement('div');
+  actRow.style.cssText = 'grid-column: 1/-1; display:flex; justify-content:center; gap:14px;';
+
+  const spacer = document.createElement('div'); spacer.style.width='76px';
+  actRow.appendChild(spacer);
+
+  const callBtn = document.createElement('button');
+  callBtn.className = 'key-btn call-btn';
+  callBtn.innerHTML = `<span class="call-icon">📞</span>`;
+  callBtn.addEventListener('click', handleCall);
+  actRow.appendChild(callBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'key-btn delete-btn';
+  delBtn.id = 'dialDeleteBtn';
+  delBtn.innerHTML = `<span style="font-size:20px">⌫</span>`;
+  delBtn.style.display = 'none';
+  delBtn.addEventListener('click', () => { dialedNumber = dialedNumber.slice(0,-1); updateDialDisplay(); });
+  actRow.appendChild(delBtn);
+
+  grid.appendChild(actRow);
+}
+
+function pressDialKey(k) {
+  dialedNumber += k;
+  updateDialDisplay();
+}
+function updateDialDisplay() {
+  document.getElementById('dialedNumber').textContent = dialedNumber;
+  const del = document.getElementById('dialDeleteBtn');
+  if (del) del.style.display = dialedNumber.length > 0 ? 'flex' : 'none';
+}
+function handleCall() {
+  if (dialedNumber === '*111#') {
+    dialedNumber = '';
+    updateDialDisplay();
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      session = { currentMenuId:'main', history:[], selections:{}, selectedAppointmentId:null };
+      openUSSD();
+      playTransitionSound();
+    }, 1500);
+  } else if (dialedNumber.length > 0) {
+    dialedNumber = '';
+    updateDialDisplay();
+    document.getElementById('errorOverlay').classList.remove('hidden');
+    playErrorSound();
+  }
+}
+function closeError() {
+  document.getElementById('errorOverlay').classList.add('hidden');
+}
+
+// ============================================================
+// USSD KEYBOARD RENDER
+// ============================================================
+function buildUSSDKeyboard() {
+  const kb = document.getElementById('ussdKeyboard');
+  kb.innerHTML = '';
+
+  if (showNumbers) {
+    buildNumberKB(kb);
+  } else {
+    buildLetterKB(kb);
+  }
+}
+
+function mkKey(text, classes, onClick, extraStyle='') {
+  const btn = document.createElement('button');
+  btn.className = 'kb-key ' + classes;
+  btn.innerHTML = text;
+  if (extraStyle) btn.style.cssText = extraStyle;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function buildLetterKB(kb) {
+  const rows = [
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['z','x','c','v','b','n','m'],
+  ];
+
+  // Num row
+  const numRow = document.createElement('div');
+  numRow.className = 'kb-row';
+  '1234567890'.split('').forEach(d => {
+    numRow.appendChild(mkKey(d, 'number', () => pressUSSDKey(d)));
+  });
+  kb.appendChild(numRow);
+
+  // Letter rows
+  rows.forEach((keys, ri) => {
+    const row = document.createElement('div');
+    row.className = 'kb-row';
+    if (ri === 2) {
+      // Shift
+      const shiftBtn = mkKey('⇧', 'shift' + (isShift||isCaps ? ' active' : ''), () => toggleShift());
+      row.appendChild(shiftBtn);
+    }
+    keys.forEach(k => {
+      const disp = (isShift || isCaps) ? k.toUpperCase() : k;
+      row.appendChild(mkKey(disp, 'letter', () => pressUSSDKey(k)));
+    });
+    if (ri === 2) {
+      row.appendChild(mkKey('⌫', 'fn delete', () => deleteUSSDChar()));
+    }
+    kb.appendChild(row);
+  });
+
+  // Bottom row
+  const botRow = document.createElement('div');
+  botRow.className = 'kb-row';
+  botRow.appendChild(mkKey('123', 'toggle-123', () => { showNumbers=true; buildUSSDKeyboard(); }));
+  botRow.appendChild(mkKey('🌐', 'globe', () => {}));
+  botRow.appendChild(mkKey('space', 'space', () => pressUSSDKey(' ')));
+  botRow.appendChild(mkKey(',', 'comma', () => pressUSSDKey(',')));
+  botRow.appendChild(mkKey('#', 'hash', () => pressUSSDKey('#')));
+  botRow.appendChild(mkKey('return', 'return-btn', () => { playClickSound(); submitUSSDInput(); }));
+  kb.appendChild(botRow);
+}
+
+function buildNumberKB(kb) {
+  const numRow = document.createElement('div');
+  numRow.className = 'kb-row';
+  '1234567890'.split('').forEach(d => numRow.appendChild(mkKey(d,'number',()=>pressUSSDKey(d))));
+  kb.appendChild(numRow);
+
+  const sym1Row = document.createElement('div');
+  sym1Row.className = 'kb-row';
+  ['-','/',':', ';','(',')','\$','&','@','"'].forEach(s => sym1Row.appendChild(mkKey(s,'sym',()=>pressUSSDKey(s))));
+  kb.appendChild(sym1Row);
+
+  const sym2Row = document.createElement('div');
+  sym2Row.className = 'kb-row';
+  sym2Row.appendChild(mkKey('#+=' , 'fn', ()=>{}));
+  ['.', ',', '?', '!', "'"].forEach(s => sym2Row.appendChild(mkKey(s,'sym',()=>pressUSSDKey(s))));
+  sym2Row.appendChild(mkKey('⌫','fn delete', ()=>deleteUSSDChar(), 'width:46px'));
+  kb.appendChild(sym2Row);
+
+  const botRow = document.createElement('div');
+  botRow.className = 'kb-row';
+  botRow.appendChild(mkKey('ABC','toggle-123',()=>{ showNumbers=false; buildUSSDKeyboard(); }));
+  botRow.appendChild(mkKey('🌐','globe',()=>{}));
+  botRow.appendChild(mkKey('space','space',()=>pressUSSDKey(' ')));
+  botRow.appendChild(mkKey('return','return-btn',()=>{ playClickSound(); submitUSSDInput(); }));
+  kb.appendChild(botRow);
+}
+
+function toggleShift() {
+  const now = Date.now();
+  if (now - lastShiftTime < 300) {
+    isCaps = !isCaps; isShift = false;
+  } else {
+    if (isCaps) { isCaps = false; isShift = false; }
+    else { isShift = !isShift; }
+  }
+  lastShiftTime = now;
+  buildUSSDKeyboard();
+}
+
+function pressUSSDKey(k) {
+  const menu = menus[session.currentMenuId];
+  if (menu.inputType === 'phone' && ussdInput.length >= 11) return;
+  if (menu.inputType === 'name' && ussdInput.length >= 50) return;
+
+  let char = k;
+  if (!showNumbers && k !== ' ' && k.length === 1 && /[a-z]/i.test(k)) {
+    char = (isShift || isCaps) ? k.toUpperCase() : k.toLowerCase();
+    if (isShift && !isCaps) { isShift = false; buildUSSDKeyboard(); }
+  }
+  ussdInput += char;
+  updateUSSDInputDisplay();
+}
+
+function deleteUSSDChar() {
+  ussdInput = ussdInput.slice(0,-1);
+  updateUSSDInputDisplay();
+}
+
+function updateUSSDInputDisplay() {
+  const el = document.getElementById('ussdInputDisplay');
+  if (ussdInput) {
+    el.textContent = ussdInput;
+    el.className = 'ussd-input-text has-value';
+  } else {
+    el.textContent = 'Enter your choice';
+    el.className = 'ussd-input-text placeholder';
+  }
+}
+
+function submitUSSDInput() {
+  if (!ussdInput.trim()) return;
+  const menu = menus[session.currentMenuId];
+
+  // Back check
+  if (ussdInput.trim() === '0' && menu.options) {
+    const back = menu.options.find(o => o.key === '0');
+    if (back) { ussdInput = ''; updateUSSDInputDisplay(); handleMenuSelection('0'); return; }
+  }
+
+  // Menu option validation for certain screens
+  const strictMenus = ['main','services','dates','time','announcements'];
+  if (strictMenus.includes(session.currentMenuId) && menu.options) {
+    const valid = menu.options.map(o => o.key);
+    if (!valid.includes(ussdInput.trim())) {
+      ussdInput = ''; updateUSSDInputDisplay();
+      showInvalidInput('menu'); return;
+    }
+  }
+
+  if (menu.inputType === 'name') {
+    const nameReg = /^[A-Za-z\s.]+,\s*[A-Za-z\s.]+$/;
+    if (!nameReg.test(ussdInput.trim())) {
+      ussdInput = ''; updateUSSDInputDisplay();
+      showInvalidInput('name'); return;
+    }
+  }
+  if (menu.inputType === 'phone') {
+    if (ussdInput.trim().length < 11) {
+      ussdInput = ''; updateUSSDInputDisplay();
+      showInvalidInput('phone'); return;
+    }
+  }
+
+  const submitted = ussdInput;
+  ussdInput = '';
+  updateUSSDInputDisplay();
+  handleMenuSelection(submitted);
+}
+
+// ============================================================
+// USSD SCREEN
+// ============================================================
+function openUSSD() {
+  ussdInput = '';
+  showNumbers = false; isShift = false; isCaps = false;
+  document.getElementById('ussdOverlay').classList.remove('hidden');
+  renderUSSD();
+}
+
+function renderUSSD() {
+  const menu = menus[session.currentMenuId];
+
+  document.getElementById('ussdText').textContent = getMenuContent();
+
+  ussdInput = '';
+  updateUSSDInputDisplay();
+  buildUSSDKeyboard();
+  showNumbers = false;
+
+  const inputBox = document.getElementById('ussdInputBox');
+  const keyboard = document.getElementById('ussdKeyboard');
+
+  if (menu?.terminal) {
+    inputBox.style.display = 'none';
+    keyboard.style.display = 'none';
+  } else {
+    inputBox.style.display = 'flex';
+    keyboard.style.display = 'block';
+  }
+}
+
+function closeUSSD() {
+  document.getElementById('ussdOverlay').classList.add('hidden');
+  session = { currentMenuId:'main', history:[], selections:{}, selectedAppointmentId:null };
+  ussdInput = '';
+}
+
+function showInvalidInput(type) {
+  const msgs = {
+    menu: "Invalid input. Please choose from the available options only. Kindly click dismiss to proceed",
+    name: "Invalid input. Enter your name as: SURNAME, Given Name. Click 'Dismiss' to continue.",
+    phone: "Invalid input. Please enter a contact number with at least 11 digits. Click 'Dismiss' to proceed.",
+    booked: "This time slot is already booked. Please choose a different time."
+  };
+  document.getElementById('invalidMsg').textContent = msgs[type] || msgs.menu;
+  document.getElementById('invalidOverlay').classList.remove('hidden');
+}
+function dismissInvalid() {
+  document.getElementById('invalidOverlay').classList.add('hidden');
+}
+
+// ============================================================
+// SMS SCREEN
+// ============================================================
+function showSMSScreen() {
+  const content = getMenuContent();
+  document.getElementById('smsBubbleText').textContent = content;
+  document.getElementById('smsOverlay').classList.remove('hidden');
+}
+function closeSMS() {
+  document.getElementById('smsOverlay').classList.add('hidden');
+  session = { currentMenuId:'main', history:[], selections:{}, selectedAppointmentId:null };
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const t = `${h}:${m}`;
+  document.getElementById('clock').textContent = t;
+  document.getElementById('smsClock').textContent = t;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// INIT
+// ============================================================
+buildPhoneKeypad();
+</script>
+</body>
+</html>
